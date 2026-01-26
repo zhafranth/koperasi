@@ -13,20 +13,22 @@ import {
 } from "@/components/ui/card";
 import { AlertCircle } from "lucide-react";
 import {
-  loginWithPhonePassword,
-  registerWithPhonePassword,
+  loginWithEmailPassword,
+  registerWithEmailProfile,
 } from "@/services/auth";
-import { useAuth } from "@/context/AuthContext";
 
 export default function Login() {
-  const [isRegister, setIsRegister] = useState(false);
-  const [phone, setPhone] = useState("");
-  const [fullName, setFullName] = useState("");
+  const [activeTab, setActiveTab] = useState<"login" | "register">("login");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [regLoading, setRegLoading] = useState(false);
+  const [regError, setRegError] = useState<string | null>(null);
+  const [regInfo, setRegInfo] = useState<string | null>(null);
   const navigate = useNavigate();
-  const { setAuthPhone } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,8 +36,7 @@ export default function Login() {
     setError(null);
 
     try {
-      await loginWithPhonePassword(phone, password);
-      await setAuthPhone(phone);
+      await loginWithEmailPassword(email, password);
       navigate("/dashboard");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to login";
@@ -47,18 +48,30 @@ export default function Login() {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setError(null);
-
+    setRegLoading(true);
+    setRegError(null);
+    setRegInfo(null);
     try {
-      await registerWithPhonePassword(phone, password, fullName);
-
-      setIsRegister(false);
+      const res = await registerWithEmailProfile(
+        email,
+        password,
+        fullName,
+        phone || undefined,
+      );
+      const isPendingConfirmation =
+        typeof res === "object" &&
+        res !== null &&
+        "needsConfirmation" in (res as Record<string, unknown>);
+      if (isPendingConfirmation) {
+        setRegInfo("Registrasi berhasil. Silakan cek email untuk konfirmasi.");
+      } else {
+        navigate("/dashboard");
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to register";
-      setError(msg);
+      setRegError(msg);
     } finally {
-      setLoading(false);
+      setRegLoading(false);
     }
   };
 
@@ -73,78 +86,122 @@ export default function Login() {
             Khusus untuk Pengurus Koperasi
           </CardDescription>
         </CardHeader>
-        <div className="px-6 pt-2">
-          <div className="flex gap-2 mb-4">
-            <Button
-              variant={isRegister ? "ghost" : "secondary"}
-              className="w-1/2"
-              onClick={() => setIsRegister(false)}
+        <div className="px-6">
+          <div className="flex border-b mb-4">
+            <button
+              className={`px-4 py-2 -mb-px border-b-2 ${activeTab === "login" ? "border-primary text-primary" : "border-transparent text-muted-foreground"}`}
+              onClick={() => setActiveTab("login")}
+              type="button"
             >
-              Masuk
-            </Button>
-            <Button
-              variant={isRegister ? "secondary" : "ghost"}
-              className="w-1/2"
-              onClick={() => setIsRegister(true)}
+              Login
+            </button>
+            <button
+              className={`px-4 py-2 -mb-px border-b-2 ${activeTab === "register" ? "border-primary text-primary" : "border-transparent text-muted-foreground"}`}
+              onClick={() => setActiveTab("register")}
+              type="button"
             >
-              Registrasi
-            </Button>
+              Register
+            </button>
           </div>
         </div>
-        <form onSubmit={isRegister ? handleRegister : handleLogin}>
-          <CardContent className="space-y-4">
-            {error && (
-              <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md flex items-center gap-2">
-                <AlertCircle className="h-4 w-4" />
-                {error}
-              </div>
-            )}
-            {isRegister && (
+        {activeTab === "login" ? (
+          <form onSubmit={handleLogin}>
+            <CardContent className="space-y-4">
+              {error && (
+                <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4" />
+                  {error}
+                </div>
+              )}
               <div className="space-y-2">
-                <Label htmlFor="full_name">Full Name</Label>
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="nama@domain.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button className="w-full" type="submit" disabled={loading}>
+                {loading ? "Signing in..." : "Sign In"}
+              </Button>
+            </CardFooter>
+          </form>
+        ) : (
+          <form onSubmit={handleRegister}>
+            <CardContent className="space-y-4">
+              {(regError || regInfo) && (
+                <div
+                  className={`text-sm p-3 rounded-md flex items-center gap-2 ${regError ? "bg-destructive/15 text-destructive" : "bg-primary/10 text-primary"}`}
+                >
+                  <AlertCircle className="h-4 w-4" />
+                  {regError || regInfo}
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="full_name">Nama Lengkap</Label>
                 <Input
                   id="full_name"
-                  placeholder="+628123456789"
+                  type="text"
+                  placeholder="Nama Lengkap"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   required
                 />
               </div>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="phone">Nomor Telepon</Label>
-              <Input
-                id="phone"
-                type="tel"
-                placeholder="+628123456789"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-          </CardContent>
-          <CardFooter>
-            <Button className="w-full" type="submit" disabled={loading}>
-              {loading
-                ? isRegister
-                  ? "Registering..."
-                  : "Signing in..."
-                : isRegister
-                  ? "Register"
-                  : "Sign In"}
-            </Button>
-          </CardFooter>
-        </form>
+              <div className="space-y-2">
+                <Label htmlFor="reg_email">Email</Label>
+                <Input
+                  id="reg_email"
+                  type="email"
+                  placeholder="nama@domain.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="reg_password">Password</Label>
+                <Input
+                  id="reg_password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">Nomor Telepon (opsional)</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  placeholder="08xxxxxxxxxx"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button className="w-full" type="submit" disabled={regLoading}>
+                {regLoading ? "Registering..." : "Register"}
+              </Button>
+            </CardFooter>
+          </form>
+        )}
       </Card>
     </div>
   );

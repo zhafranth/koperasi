@@ -4,6 +4,7 @@ export type UserRole = "anggota" | "pengurus";
 
 export interface AuthProfile {
   id: string;
+  email?: string | null;
   phone: string;
   full_name: string;
   role: UserRole;
@@ -12,23 +13,71 @@ export interface AuthProfile {
   password_hash?: string;
 }
 
-export async function loginWithPhonePassword(phone: string, password: string) {
-  const { data, error } = await supabase
+export async function loginWithEmailPassword(email: string, password: string) {
+  const { data: signInData, error: signInError } =
+    await supabase.auth.signInWithPassword({ email, password });
+  if (signInError) throw signInError;
+  if (!signInData || !signInData.user) throw new Error("Login gagal");
+
+  const userId = signInData.user.id;
+  let { data: profile, error: profileError } = await supabase
     .from("users")
     .select("*")
-    .eq("phone", phone)
-    .eq("is_active", true)
+    .eq("id", userId)
     .single();
+  if (profileError || !profile) {
+    const { data: byEmail } = await supabase
+      .from("users")
+      .select("*")
+      .eq("email", signInData.user.email || "")
+      .maybeSingle();
+    profile = byEmail || null;
+    profileError = null;
+  }
+  if (!profile)
+    throw new Error(
+      "Profil tidak ditemukan. Hubungi pengurus untuk melengkapi data.",
+    );
 
-  if (error) throw error;
-  if (!data) throw new Error("User tidak ditemukan");
-
-  if ((data as AuthProfile).password_hash !== password) {
-    throw new Error("Password salah");
+  const p = profile as AuthProfile;
+  if (!p.is_active) {
+    await supabase.auth.signOut();
+    throw new Error("Akun nonaktif. Hubungi pengurus.");
   }
 
-  localStorage.setItem("auth_phone", phone);
-  return data as AuthProfile;
+  return p;
+}
+
+export async function registerWithEmailProfile(
+  email: string,
+  password: string,
+  fullName: string,
+  phone?: string,
+) {
+  const { data, error } = await supabase.auth.signUp({ email, password });
+  if (error) throw error;
+
+  const user = data.user || null;
+  if (!user) {
+    return { needsConfirmation: true };
+  }
+
+  const insertPayload: Record<string, unknown> = {
+    id: user.id,
+    email,
+    phone: phone || null,
+    full_name: fullName,
+    role: "anggota",
+    is_active: true,
+  };
+
+  const { data: profile, error: upsertError } = await supabase
+    .from("users")
+    .upsert(insertPayload, { onConflict: "id" })
+    .select()
+    .single();
+  if (upsertError) throw upsertError;
+  return profile as AuthProfile;
 }
 
 export async function registerWithPhonePassword(
@@ -37,6 +86,11 @@ export async function registerWithPhonePassword(
   fullName?: string,
   photoUrl?: string,
 ) {
+  const { data: authUser } = await supabase.auth.getUser();
+  if (!authUser || !authUser.user) {
+    throw new Error("Harus terautentikasi terlebih dahulu untuk registrasi");
+  }
+
   const { data: existing, error: existError } = await supabase
     .from("users")
     .select("id")
@@ -48,6 +102,7 @@ export async function registerWithPhonePassword(
   }
 
   const insertPayload: Record<string, unknown> = {
+    id: authUser.user.id,
     phone,
     password_hash,
     full_name: fullName || phone,

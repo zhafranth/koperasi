@@ -4,6 +4,7 @@ import { Layout } from '@/components/layout/Layout';
 import Login from '@/pages/Login';
 import Home from '@/pages/Home';
 import Dashboard from '@/pages/Dashboard';
+import User from '@/pages/User';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading, isAdmin } = useAuth();
@@ -33,6 +34,14 @@ function AppRoutes() {
           element={
             <ProtectedRoute>
               <Dashboard />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/user" 
+          element={
+            <ProtectedRoute>
+              <User />
             </ProtectedRoute>
           } 
         />
