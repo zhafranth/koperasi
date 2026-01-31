@@ -5,6 +5,7 @@ import Login from '@/pages/Login';
 import Home from '@/pages/Home';
 import Dashboard from '@/pages/Dashboard';
 import User from '@/pages/User';
+import Anggota from '@/pages/Anggota';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading, isAdmin } = useAuth();
@@ -34,6 +35,14 @@ function AppRoutes() {
           element={
             <ProtectedRoute>
               <Dashboard />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/anggota" 
+          element={
+            <ProtectedRoute>
+              <Anggota />
             </ProtectedRoute>
           } 
         />

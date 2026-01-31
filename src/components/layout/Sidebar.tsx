@@ -54,14 +54,14 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 <span className={`transition-all duration-300 ease-in-out ${labelClass}`}>Dashboard</span>
               </Button>
             </Link>
-            <Link to="/user">
+            <Link to="/anggota">
               <Button
-                variant={isActive("/user") ? "default" : "ghost"}
+                variant={isActive("/anggota") ? "default" : "ghost"}
                 size="sm"
                 className={`w-full justify-start gap-3 transition-colors ${collapsed ? "px-2" : "px-3"}`}
               >
                 <Users className="h-4 w-4 shrink-0" />
-                <span className={`transition-all duration-300 ease-in-out ${labelClass}`}>User</span>
+                <span className={`transition-all duration-300 ease-in-out ${labelClass}`}>Anggota</span>
               </Button>
             </Link>
           </>
